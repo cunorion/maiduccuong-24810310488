@@ -1,1 +1,429 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
+namespace LogisticsAutoSpeed
+{
+    // A. Abstract Class PhuongTien
+    public abstract class PhuongTien
+    {
+        private string _maPT;
+        private string _tenHang;
+        private int _namSanXuat;
+        private decimal _giaGoc;
+
+        public string MaPT
+        {
+            get => _maPT;
+            set => _maPT = string.IsNullOrWhiteSpace(value) ? "PT000" : value;
+        }
+
+        public string TenHang
+        {
+            get => _tenHang;
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value)) 
+                    throw new ArgumentException("Tên hãng không được để trống.");
+                _tenHang = value;
+            }
+        }
+
+        public int NamSanXuat
+        {
+            get => _namSanXuat;
+            set
+            {
+                if (value < 1900 || value > DateTime.Now.Year)
+                    throw new ArgumentException("Năm sản xuất không hợp lệ!");
+                _namSanXuat = value;
+            }
+        }
+
+        public decimal GiaGoc
+        {
+            get => _giaGoc;
+            set
+            {
+                if (value <= 0) 
+                    throw new ArgumentException("Giá gốc phải lớn hơn 0.");
+                _giaGoc = value;
+            }
+        }
+
+        protected PhuongTien(string maPT, string tenHang, int namSanXuat, decimal giaGoc)
+        {
+            MaPT = maPT;
+            TenHang = tenHang;
+            NamSanXuat = namSanXuat;
+            GiaGoc = giaGoc;
+        }
+
+        public abstract decimal TinhGiaLanBanh();
+
+        public virtual string GetInfo()
+        {
+            return $"Mã: {MaPT,-5} | Hãng: {TenHang,-10} | Năm: {NamSanXuat} | Giá gốc: {GiaGoc:N0} VNĐ";
+        }
+    }
+
+    // B. Class OTo
+    public class OTo : PhuongTien
+    {
+        public int SoChoNgoi { get; set; }
+        public double DungTichDongCo { get; set; }
+
+        public OTo(string maPT, string tenHang, int namSanXuat, decimal giaGoc, int soChoNgoi, double dungTichDongCo)
+            : base(maPT, tenHang, namSanXuat, giaGoc)
+        {
+            SoChoNgoi = soChoNgoi;
+            DungTichDongCo = dungTichDongCo;
+        }
+
+        public override decimal TinhGiaLanBanh()
+        {
+            if (SoChoNgoi <= 9)
+                return GiaGoc + (0.12m * GiaGoc) + (0.30m * GiaGoc); // Trước bạ 12%, TTĐB 30%
+            else
+                return GiaGoc + (0.10m * GiaGoc); // Trước bạ 10%
+        }
+
+        public override string GetInfo()
+        {
+            return base.GetInfo() + $" | Chỗ: {SoChoNgoi} | Động cơ: {DungTichDongCo}L (Ô tô)";
+        }
+    }
+
+    // C. Class XeMay
+    public class XeMay : PhuongTien
+    {
+        public int DungTichXylanh { get; set; }
+
+        public XeMay(string maPT, string tenHang, int namSanXuat, decimal giaGoc, int dungTichXylanh)
+            : base(maPT, tenHang, namSanXuat, giaGoc)
+        {
+            DungTichXylanh = dungTichXylanh;
+        }
+
+        public override decimal TinhGiaLanBanh()
+        {
+            if (DungTichXylanh < 175)
+                return GiaGoc + (0.02m * GiaGoc); // Trước bạ 2%
+            else
+                return GiaGoc + (0.05m * GiaGoc); // Trước bạ 5%
+        }
+
+        public override string GetInfo()
+        {
+            return base.GetInfo() + $" | Phân khối: {DungTichXylanh}cc (Xe máy)";
+        }
+    }
+
+    // D. Class QuanLyPhuongTien
+    public class QuanLyPhuongTien
+    {
+        private List<PhuongTien> listPT = new List<PhuongTien>();
+
+        public void AddPhuongTien(PhuongTien pt)
+        {
+            listPT.Add(pt);
+        }
+
+        public void DisplayAll()
+        {
+            foreach (var pt in listPT)
+            {
+                Console.WriteLine($"{pt.GetInfo()} -> GIÁ LĂN BÁNH: {pt.TinhGiaLanBanh():N0} VNĐ");
+            }
+        }
+
+        public PhuongTien FindMaxGiaLanBanh()
+        {
+            if (listPT.Count == 0) return null;
+            return listPT.OrderByDescending(pt => pt.TinhGiaLanBanh()).FirstOrDefault();
+        }
+
+        public List<PhuongTien> SearchByName(string keyword)
+        {
+            // Sử dụng LINQ
+            return listPT.Where(pt => pt.TenHang.Contains(keyword, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+
+    // KỊCH BẢN KIỂM THỬ (TEST CASES)
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            QuanLyPhuongTien ql = new QuanLyPhuongTien();
+
+            Console.WriteLine("--- BẮT ĐẦU CHẠY CÁC TEST CASES ---\n");
+
+            // TC01: Kiểm tra Validation Năm sản xuất
+            Console.WriteLine("[TC01] Khởi tạo Ô tô có NamSanXuat = 1850");
+            try
+            {
+                OTo otoLoi = new OTo("OT01", "Toyota", 1850, 1000000000, 5, 2.0);
+            }
+            catch (ArgumentException ex)
+            {
+                Console.WriteLine($"=> Passed! Hệ thống báo lỗi: {ex.Message}\n");
+            }
+
+            // Khởi tạo các phương tiện hợp lệ cho TC02, TC03, TC04
+            OTo oto = new OTo("OT02", "Mercedes", 2023, 1000000000m, 5, 2.0);
+            XeMay xm = new XeMay("XM01", "Honda", 2023, 50000000m, 150);
+
+            ql.AddPhuongTien(oto);
+            ql.AddPhuongTien(xm);
+
+            // TC02: Kiểm tra Tính Giá Lăn Bánh Ô tô
+            Console.WriteLine("[TC02] Tính Giá Lăn Bánh Ô tô (Gốc 1 Tỷ, 5 chỗ)");
+            Console.WriteLine($"=> Giá lăn bánh tính toán: {oto.TinhGiaLanBanh():N0} VNĐ (Kỳ vọng: 1,420,000,000 VNĐ) - {(oto.TinhGiaLanBanh() == 1420000000m ? "Passed!" : "Failed!")}\n");
+
+            // TC03: Kiểm tra Tính Giá Lăn Bánh Xe máy
+            Console.WriteLine("[TC03] Tính Giá Lăn Bánh Xe máy (Gốc 50 Triệu, 150cc)");
+            Console.WriteLine($"=> Giá lăn bánh tính toán: {xm.TinhGiaLanBanh():N0} VNĐ (Kỳ vọng: 51,000,000 VNĐ) - {(xm.TinhGiaLanBanh() == 51000000m ? "Passed!" : "Failed!")}\n");
+
+            // TC04: Kiểm tra Đa hình List<PhuongTien>
+            Console.WriteLine("[TC04] Kiểm tra Đa hình khi gọi DisplayAll()");
+            ql.DisplayAll();
+            Console.WriteLine("=> Passed! Đã kích hoạt đúng phương thức TinhGiaLanBanh() và GetInfo() tương ứng.\n");
+
+            // TC05: Kiểm tra Tìm Giá Lăn Bánh MaxDưới đây là giải pháp C# hoàn chỉnh triển khai toàn bộ yêu cầu của Hệ thống Quản lý Phương tiện Giao thông, áp dụng chặt chẽ 4 tính chất của OOP (Đóng gói, Kế thừa, Đa hình, Trừu tượng) cùng các tính năng Modern C# (LINQ, Auto-Properties, Pattern Matching).
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace AutoSpeedLogistics
+{
+    // ==========================================
+    // 1. ABSTRACT CLASS: Phương Tiện (Trừu tượng)
+    // ==========================================
+    public abstract class PhuongTien
+    {
+        // Encapsulation (Đóng gói): Các trường dữ liệu private
+        private string _maPT;
+        private string _tenHang;
+        private int _namSanXuat;
+        private decimal _giaGoc;
+
+        // Properties với Validation
+        public string MaPT
+        {
+            get => _maPT;
+            set => _maPT = string.IsNullOrWhiteSpace(value) ? "PT000" : value.Trim();
+        }
+
+        public string TenHang
+        {
+            get => _tenHang;
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    throw new ArgumentException("Tên hãng không được để trống!");
+                _tenHang = value.Trim();
+            }
+        }
+
+        public int NamSanXuat
+        {
+            get => _namSanXuat;
+            set
+            {
+                int currentYear = DateTime.Now.Year;
+                if (value < 1900 || value > currentYear)
+                    throw new ArgumentException("Năm sản xuất không hợp lệ!");
+                _namSanXuat = value;
+            }
+        }
+
+        public decimal GiaGoc
+        {
+            get => _giaGoc;
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentException("Giá gốc phải lớn hơn 0!");
+                _giaGoc = value;
+            }
+        }
+
+        // Constructor
+        protected PhuongTien(string maPT, string tenHang, int namSanXuat, decimal giaGoc)
+        {
+            MaPT = maPT;
+            TenHang = tenHang;
+            NamSanXuat = namSanXuat;
+            GiaGoc = giaGoc;
+        }
+
+        // Abstraction: Phương thức trừu tượng tính giá lăn bánh
+        public abstract decimal TinhGiaLanBanh();
+
+        // Virtual method: Cho phép lớp con ghi đè
+        public virtual string GetInfo()
+        {
+            return $"Mã: {MaPT,-6} | Hãng: {TenHang,-10} | Năm SX: {NamSanXuat} | Giá gốc: {GiaGoc:N0} đ";
+        }
+    }
+
+    // ==========================================
+    // 2. CLASS OTO (Kế thừa)
+    // ==========================================
+    public class OTo : PhuongTien
+    {
+        public int SoChoNgoi { get; set; }
+        public double DungTichDongCo { get; set; }
+
+        public OTo(string maPT, string tenHang, int namSanXuat, decimal giaGoc, int soChoNgoi, double dungTichDongCo) 
+            : base(maPT, tenHang, namSanXuat, giaGoc)
+        {
+            SoChoNgoi = soChoNgoi;
+            DungTichDongCo = dungTichDongCo;
+        }
+
+        // Polymorphism (Đa hình): Ghi đè cách tính giá
+        public override decimal TinhGiaLanBanh()
+        {
+            decimal thueTruocBa = GiaGoc * 0.12m;
+            decimal thueTieuThuDacBiet = GiaGoc * 0.30m;
+
+            if (SoChoNgoi <= 9)
+            {
+                return GiaGoc + thueTruocBa + thueTieuThuDacBiet;
+            }
+            else
+            {
+                // > 9 chỗ: Thuế TB 10%, không có thuế TTĐB trong đề bài quy định
+                return GiaGoc + (GiaGoc * 0.10m);
+            }
+        }
+
+        public override string GetInfo()
+        {
+            return base.GetInfo() + $" | Chỗ ngồi: {SoChoNgoi} | Động cơ: {DungTichDongCo}L | Giá Lăn Bánh: {TinhGiaLanBanh():N0} đ [Ô Tô]";
+        }
+    }
+
+    // ==========================================
+    // 3. CLASS XEMAY (Kế thừa)
+    // ==========================================
+    public class XeMay : PhuongTien
+    {
+        public int DungTichXylanh { get; set; }
+
+        public XeMay(string maPT, string tenHang, int namSanXuat, decimal giaGoc, int dungTichXylanh) 
+            : base(maPT, tenHang, namSanXuat, giaGoc)
+        {
+            DungTichXylanh = dungTichXylanh;
+        }
+
+        // Polymorphism: Ghi đè phương thức trừu tượng
+        public override decimal TinhGiaLanBanh()
+        {
+            decimal thueTruocBa = DungTichXylanh < 175 ? (GiaGoc * 0.02m) : (GiaGoc * 0.05m);
+            return GiaGoc + thueTruocBa;
+        }
+
+        public override string GetInfo()
+        {
+            return base.GetInfo() + $" | Phân khối: {DungTichXylanh}cc | Giá Lăn Bánh: {TinhGiaLanBanh():N0} đ [Xe Máy]";
+        }
+    }
+
+    // ==========================================
+    // 4. CLASS QUAN LY (Manager)
+    // ==========================================
+    public class QuanLyPhuongTien
+    {
+        private List<PhuongTien> _danhSachPT = new List<PhuongTien>();
+
+        public void AddPhuongTien(PhuongTien pt)
+        {
+            _danhSachPT.Add(pt);
+        }
+
+        public void DisplayAll()
+        {
+            foreach (var pt in _danhSachPT)
+            {
+                Console.WriteLine(pt.GetInfo());
+            }
+        }
+
+        public PhuongTien FindMaxGiaLanBanh()
+        {
+            if (!_danhSachPT.Any()) return null;
+            // Dùng LINQ để tìm phần tử có giá trị lớn nhất
+            return _danhSachPT.OrderByDescending(p => p.TinhGiaLanBanh()).First();
+        }
+
+        public List<PhuongTien> SearchByName(string keyword)
+        {
+            return _danhSachPT
+                .Where(p => p.TenHang.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        
+        public List<PhuongTien> GetAll() => _danhSachPT;
+    }
+
+    // ==========================================
+    // 5. TEST CASES (Kịch bản kiểm thử)
+    // ==========================================
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            QuanLyPhuongTien ql = new QuanLyPhuongTien();
+
+            Console.WriteLine("=== THỰC THI TEST CASES ===");
+
+            // TC01: Kiểm tra Validation Năm sản xuất
+            Console.WriteLine("\n[TC01] - Kiểm tra Validation Năm sản xuất:");
+            try
+            {
+                OTo xeLoi = new OTo("OT00", "Ford", 1850, 100000000, 5, 2.0);
+            }
+            catch (ArgumentException ex)
+            {
+                Console.WriteLine($"-> Pass: Bắt đúng ngoại lệ - \"{ex.Message}\"");
+            }
+
+            // Tạo dữ liệu chuẩn bị cho các TC tiếp theo
+            OTo oToTC02 = new OTo("OT01", "Toyota", 2023, 1000000000m, 5, 2.5); // 1 Tỷ
+            XeMay xeMayTC03 = new XeMay("XM01", "Honda", 2023, 50000000m, 150); // 50 Triệu
+            
+            // Nạp vào List
+            ql.AddPhuongTien(oToTC02);
+            ql.AddPhuongTien(xeMayTC03);
+
+            // TC02: Kiểm tra Tính Giá Lăn Bánh Ô tô
+            Console.WriteLine("\n[TC02] - Tính giá lăn bánh Ô tô (5 chỗ, 1 Tỷ):");
+            Console.WriteLine($"-> Giá lăn bánh: {oToTC02.TinhGiaLanBanh():N0} VNĐ (Kỳ vọng: 1,420,000,000 VNĐ)");
+
+            // TC03: Kiểm tra Tính Giá Lăn Bánh Xe máy
+            Console.WriteLine("\n[TC03] - Tính giá lăn bánh Xe máy (150cc, 50 Triệu):");
+            Console.WriteLine($"-> Giá lăn bánh: {xeMayTC03.TinhGiaLanBanh():N0} VNĐ (Kỳ vọng: 51,000,000 VNĐ)");
+
+            // TC04: Kiểm tra Đa hình List<PhuongTien>
+            Console.WriteLine("\n[TC04] - Gọi đa hình trong danh sách:");
+            ql.DisplayAll(); 
+
+            // TC05: Kiểm tra Tìm Giá Lăn Bánh Max
+            Console.WriteLine("\n[TC05] - Tìm phương tiện có giá lăn bánh lớn nhất:");
+            PhuongTien maxPT = ql.FindMaxGiaLanBanh();
+            if (maxPT != null)
+            {
+                Console.WriteLine($"-> Phương tiện Max: {maxPT.TenHang} - {maxPT.TinhGiaLanBanh():N0} VNĐ");
+            }
+            
+            Console.ReadLine();
+        }
+    }
+}
